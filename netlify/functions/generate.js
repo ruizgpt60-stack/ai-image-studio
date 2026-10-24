@@ -1,7 +1,6 @@
 const { createClient } = require('@supabase/supabase-js');
 const sb = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 const json = (statusCode, body) => ({ statusCode, headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
-const clamp = (v, d) => Math.min(Math.max(parseInt(v) || d, 256), 1024);
 
 exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return json(405, { error: 'Método no permitido' });
@@ -17,9 +16,20 @@ exports.handler = async (event) => {
   const { data: credits, error } = await sb.rpc('consume_credit', { uid: user.id });
   if (error) return json(500, { error: 'No se pudo descontar el crédito.' });
   if (credits === null) return json(402, { error: 'Sin créditos' });
+  if (credits === -1) return json(429, { error: 'Espera unos segundos antes de generar otra imagen.' });
 
-  // Para un proveedor de pago, cambia solo esta URL por la llamada a su API (con su clave en variables de entorno).
-  const seed = Math.floor(Math.random() * 1e6);
-  const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(prompt)}?width=${clamp(b.width, 768)}&height=${clamp(b.height, 768)}&seed=${seed}&nologo=true&model=flux`;
-  return json(200, { url, credits });
+  try {
+    const r = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${process.env.CF_ACCOUNT_ID}/ai/run/@cf/black-forest-labs/flux-1-schnell`,
+      { method: 'POST', signal: AbortSignal.timeout(8500),
+        headers: { Authorization: `Bearer ${process.env.CF_API_TOKEN}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, steps: 4 }) });
+    const out = await r.json();
+    const img = out && out.result && out.result.image;
+    if (!r.ok || !img) throw new Error('sin imagen');
+    return json(200, { image: 'data:image/jpeg;base64,' + img, credits });
+  } catch (e) {
+    await sb.rpc('refund_credit', { uid: user.id });
+    return json(502, { error: 'No se pudo generar la imagen. Tu crédito fue devuelto; inténtalo de nuevo.' });
+  }
 };
