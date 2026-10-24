@@ -115,6 +115,9 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
     </section>
   </div>
 
+  <!-- Espacio publicitario (Google AdSense): se activa al poner ADSENSE_CLIENT y ADSENSE_SLOT en el script -->
+  <aside id="adSlot" aria-label="Publicidad" class="mt-10 rounded-2xl border border-dashed border-edge bg-panel/50 text-center text-xs text-mute py-6 min-h-[110px] grid place-items-center">Espacio publicitario</aside>
+
   <!-- Galería -->
   <section class="mt-12">
     <div class="flex items-baseline justify-between mb-4">
@@ -211,7 +214,8 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
 
     const ratio = radio('ratio').value, [w, h] = SIZES[ratio];
     const styleName = radioLabel('style');
-    const full = `${text}, ${radio('style').value}`;
+    const hint = ratio === '16:9' ? ', wide cinematic composition' : ratio === '9:16' ? ', tall vertical composition' : '';
+    const full = `${text}, ${radio('style').value}${hint}`;
     const seed = Math.floor(Math.random() * 1e6);
     const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(full)}?width=${w}&height=${h}&seed=${seed}&nologo=true&model=flux`;
 
@@ -226,7 +230,7 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
     try {
       const r = await api('generate', { prompt: full, width: w, height: h });
       state.credits = r.credits;
-      const finalUrl = await loadImage(r.url);
+      const finalUrl = await cropTo(r.image, ratio);
       const item = { url: finalUrl, prompt: text, style: styleName, ratio, id: Date.now() };
       state.current = item;
       state.gallery = [item, ...state.gallery].slice(0, 3);
@@ -346,6 +350,31 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
     $('authBtn').textContent = session ? 'Salir' : 'Iniciar sesión';
     setTimeout(refreshCredits, 0);
   });
+  const ADSENSE_CLIENT = ''; // ej. 'ca-pub-1234567890123456' (cuando AdSense te apruebe)
+  const ADSENSE_SLOT = '';   // ID del bloque de anuncios que crees en AdSense
+  const adSlot = $('adSlot');
+  if (ADSENSE_CLIENT && ADSENSE_SLOT) {
+    const sc = document.createElement('script'); sc.async = true; sc.crossOrigin = 'anonymous';
+    sc.src = 'https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=' + ADSENSE_CLIENT;
+    document.head.appendChild(sc);
+    adSlot.className = 'mt-10';
+    adSlot.innerHTML = '<ins class="adsbygoogle" style="display:block" data-ad-client="' + ADSENSE_CLIENT + '" data-ad-slot="' + ADSENSE_SLOT + '" data-ad-format="auto" data-full-width-responsive="true"></ins>';
+    try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+  } else if (!location.search.includes('ads')) adSlot.remove(); // añade ?ads a la URL para ver el hueco
+
+  function cropTo(src, ratio) {
+    return new Promise(res => {
+      const [a, b] = ratio.split(':').map(Number), im = new Image();
+      im.onload = () => {
+        let w = im.width, h = im.height;
+        if (w / h > a / b) w = Math.round(h * a / b); else h = Math.round(w * b / a);
+        const c = document.createElement('canvas'); c.width = w; c.height = h;
+        c.getContext('2d').drawImage(im, (im.width - w) / 2, (im.height - h) / 2, w, h, 0, 0, w, h);
+        res(c.toDataURL('image/jpeg', 0.92));
+      };
+      im.onerror = () => res(src); im.src = src;
+    });
+  }
   show('empty'); renderCredits(); pingApi();
 })();
 </script>
