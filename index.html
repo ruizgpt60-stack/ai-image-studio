@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI Image Studio</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script>
+tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','sans-serif'] },
+  colors: { ink:'#0f1220', panel:'#171b2e', edge:'#2a3050', mute:'#8a92b2', iris:'#8b7cff', rose:'#ff6fae' } } } }
+</script>
+<style>
+  body { background: radial-gradient(900px 500px at 85% -10%, rgba(139,124,255,.18), transparent 60%), #0f1220; }
+  .chip input:checked + span { background:#8b7cff; color:#fff; border-color:#8b7cff; }
+  .chip input:focus-visible + span { outline:2px solid #ff6fae; outline-offset:2px; }
+  .shimmer { background: linear-gradient(100deg,#1c2140 30%,#2c3466 50%,#1c2140 70%); background-size:200% 100%; animation: sh 1.4s linear infinite; }
+  @keyframes sh { to { background-position:-200% 0; } }
+  @keyframes pop { from { opacity:0; transform:scale(.97);} to { opacity:1; transform:none;} }
+  .pop { animation: pop .35s ease-out; }
+  @media (prefers-reduced-motion: reduce) { .shimmer, .pop { animation:none; } }
+  button:focus-visible, textarea:focus-visible { outline:2px solid #ff6fae; outline-offset:2px; }
+</style>
+</head>
+<body class="font-sans text-slate-100 min-h-screen">
+
+<!-- Header -->
+<header class="border-b border-edge/70 backdrop-blur sticky top-0 z-20 bg-ink/80">
+  <div class="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+    <div class="flex items-center gap-3">
+      <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-iris to-rose grid place-items-center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="9" cy="9" r="1.8"/><path d="m21 15-5-5L5 21"/></svg>
+      </div>
+      <span class="font-semibold tracking-tight text-lg">AI Image Studio</span>
+    </div>
+    <div class="flex items-center gap-2 sm:gap-4">
+      <div class="hidden sm:flex items-center gap-2 text-sm text-mute" title="Estado del servicio de generación">
+        <span id="apiDot" class="w-2 h-2 rounded-full bg-emerald-400"></span>
+        <span id="apiText">API operativa</span>
+      </div>
+      <div class="text-sm px-3 py-1.5 rounded-lg bg-panel border border-edge">
+        Créditos: <span id="credits" class="font-semibold text-white">–</span>
+      </div>
+      <button id="authBtn" class="text-sm px-3 py-2 rounded-lg border border-edge hover:border-iris transition">Iniciar sesión</button>
+      <button id="upgradeBtn" class="text-sm font-medium px-4 py-2 rounded-lg border border-iris text-iris hover:bg-iris hover:text-white transition">Upgrade a Pro</button>
+    </div>
+  </div>
+</header>
+
+<main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
+  <div class="max-w-2xl mb-8">
+    <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight">Describe una imagen y la creamos en segundos.</h1>
+    <p class="text-mute mt-3">Escribe tu idea, elige un estilo y un formato. Cada generación usa 1 crédito gratuito.</p>
+  </div>
+
+  <div class="grid lg:grid-cols-[400px_1fr] gap-6">
+    <!-- Panel de generación -->
+    <section class="bg-panel border border-edge rounded-2xl p-5 space-y-5 h-fit">
+      <div>
+        <label for="prompt" class="text-sm font-medium">Prompt</label>
+        <textarea id="prompt" rows="5" maxlength="400" class="mt-2 w-full bg-ink border border-edge rounded-xl p-3 text-sm resize-none placeholder:text-mute/70 focus:border-iris"
+          placeholder="Un faro sobre un acantilado al amanecer, con niebla baja y mar en calma"></textarea>
+        <div class="flex justify-between text-xs text-mute mt-1"><span id="promptErr" class="text-rose"></span><span><span id="count">0</span>/400</span></div>
+      </div>
+
+      <fieldset>
+        <legend class="text-sm font-medium mb-2">Estilo</legend>
+        <div id="styles" class="grid grid-cols-2 gap-2">
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="photorealistic, ultra detailed, natural lighting, 35mm photo" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Fotorrealista</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="anime style, vibrant colors, clean line art, studio quality"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Anime</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="digital art, concept art, detailed illustration, trending on artstation"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Arte Digital</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="cyberpunk, neon lights, rainy night city, futuristic, high contrast"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Cyberpunk</span></label>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend class="text-sm font-medium mb-2">Formato</legend>
+        <div class="grid grid-cols-3 gap-2">
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="1:1" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">1:1</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="16:9"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">16:9</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="9:16"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">9:16</span></label>
+        </div>
+      </fieldset>
+
+      <button id="generateBtn" class="w-full py-3.5 rounded-xl font-semibold text-white bg-gradient-to-r from-iris to-rose hover:brightness-110 active:scale-[.99] transition disabled:opacity-50 disabled:cursor-not-allowed">
+        Generar Imagen con IA
+      </button>
+    </section>
+
+    <!-- Resultado -->
+    <section class="bg-panel border border-edge rounded-2xl p-5 flex flex-col">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="font-medium">Resultado</h2>
+        <span id="meta" class="text-xs text-mute"></span>
+      </div>
+      <div id="stage" class="flex-1 min-h-[360px] grid place-items-center rounded-xl border border-dashed border-edge bg-ink/50 p-3">
+        <div id="empty" class="text-center text-mute text-sm max-w-xs">
+          <p>Tu imagen aparecerá aquí.</p>
+          <p class="mt-1">Escribe un prompt y pulsa <span class="text-white">Generar Imagen con IA</span>.</p>
+        </div>
+        <div id="loader" class="hidden w-full max-w-md text-center">
+          <div id="skeleton" class="shimmer rounded-xl mx-auto" style="aspect-ratio:1/1;max-height:420px"></div>
+          <p class="mt-4 text-sm text-mute" id="loadMsg">Interpretando tu prompt…</p>
+        </div>
+        <div id="result" class="hidden w-full text-center pop">
+          <img id="resultImg" alt="Imagen generada" class="mx-auto rounded-xl max-h-[520px] max-w-full object-contain shadow-2xl">
+        </div>
+      </div>
+      <div id="actions" class="hidden mt-4 flex flex-wrap gap-3">
+        <button id="downloadBtn" class="px-4 py-2 rounded-lg text-sm font-medium bg-white text-ink hover:bg-slate-200 transition">Descargar</button>
+        <button id="copyBtn" class="px-4 py-2 rounded-lg text-sm font-medium border border-edge hover:border-iris transition">Copiar Prompt</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- Galería -->
+  <section class="mt-12">
+    <div class="flex items-baseline justify-between mb-4">
+      <h2 class="text-xl font-semibold">Galería reciente</h2>
+      <span class="text-sm text-mute">Últimas 3 de esta sesión</span>
+    </div>
+    <div id="gallery" class="grid sm:grid-cols-3 gap-4">
+      <p id="galleryEmpty" class="sm:col-span-3 text-sm text-mute bg-panel border border-edge rounded-2xl p-6">Aún no has generado imágenes. Las últimas tres aparecerán aquí.</p>
+    </div>
+  </section>
+</main>
+
+<!-- Modal Pro -->
+<div id="modal" class="hidden fixed inset-0 z-30 bg-black/70 grid place-items-center p-4">
+  <div class="bg-panel border border-edge rounded-2xl p-6 max-w-sm w-full pop" role="dialog" aria-modal="true" aria-labelledby="mTitle">
+    <h3 id="mTitle" class="text-lg font-semibold">Pasa a Pro</h3>
+    <p id="mText" class="text-sm text-mute mt-2">Pack de 50 créditos para seguir generando imágenes.</p>
+    <div class="mt-5 flex gap-3">
+      <button id="mProBtn" class="flex-1 py-2.5 rounded-lg font-medium text-white bg-gradient-to-r from-iris to-rose">Comprar 50 créditos</button>
+      <button id="mClose" class="px-4 py-2.5 rounded-lg border border-edge text-sm">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<div id="authModal" class="hidden fixed inset-0 z-30 bg-black/70 grid place-items-center p-4">
+  <div class="bg-panel border border-edge rounded-2xl p-6 max-w-sm w-full pop" role="dialog" aria-modal="true" aria-labelledby="aTitle">
+    <h3 id="aTitle" class="text-lg font-semibold">Entra para generar</h3>
+    <p class="text-sm text-mute mt-1">Al crear tu cuenta recibes 5 créditos gratis.</p>
+    <input id="aEmail" type="email" autocomplete="email" placeholder="tu@correo.com" class="mt-4 w-full bg-ink border border-edge rounded-lg p-2.5 text-sm">
+    <input id="aPass" type="password" autocomplete="current-password" placeholder="Contraseña (mínimo 6 caracteres)" class="mt-2 w-full bg-ink border border-edge rounded-lg p-2.5 text-sm">
+    <p id="aMsg" class="text-xs text-rose mt-2 min-h-[1rem]"></p>
+    <div class="mt-3 flex gap-3">
+      <button id="aIn" class="flex-1 py-2.5 rounded-lg font-medium text-white bg-gradient-to-r from-iris to-rose">Iniciar sesión</button>
+      <button id="aUp" class="flex-1 py-2.5 rounded-lg border border-edge text-sm">Crear cuenta</button>
+    </div>
+    <button id="aClose" class="mt-3 text-xs text-mute w-full">Cerrar</button>
+  </div>
+</div>
+
+<div id="toast" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 hidden px-4 py-2 rounded-lg bg-white text-ink text-sm font-medium shadow-xl"></div>
+
+<script>
+(() => {
+  const SUPABASE_URL = 'https://chslxdazdnabztylmlxy.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_3KrSt-t6aP1w_CWdSP8jkA_Lz8kmMqd';
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
+  const SIZES = { '1:1':[768,768], '16:9':[1024,576], '9:16':[576,1024] };
+  const $ = id => document.getElementById(id);
+  const state = { credits: 0, session: null, busy: false, current: null, gallery: [] };
+
+  const el = {
+    prompt:$('prompt'), count:$('count'), err:$('promptErr'), gen:$('generateBtn'), credits:$('credits'),
+    empty:$('empty'), loader:$('loader'), skeleton:$('skeleton'), loadMsg:$('loadMsg'),
+    result:$('result'), img:$('resultImg'), actions:$('actions'), meta:$('meta'),
+    gallery:$('gallery'), toast:$('toast'), modal:$('modal'), mText:$('mText')
+  };
+  const radio = name => document.querySelector(`input[name="${name}"]:checked`);
+  const radioLabel = name => radio(name).nextElementSibling.textContent;
+
+  function toast(msg) {
+    el.toast.textContent = msg; el.toast.classList.remove('hidden');
+    clearTimeout(toast.t); toast.t = setTimeout(() => el.toast.classList.add('hidden'), 2200);
+  }
+  function showModal(text) { if (text) el.mText.textContent = text; el.modal.classList.remove('hidden'); }
+  function renderCredits() {
+    el.credits.textContent = state.session ? state.credits : '–';
+    el.gen.disabled = state.busy;
+  }
+  function show(which) {
+    el.empty.classList.toggle('hidden', which !== 'empty');
+    el.loader.classList.toggle('hidden', which !== 'loader');
+    el.result.classList.toggle('hidden', which !== 'result');
+    el.actions.classList.toggle('hidden', which !== 'result');
+  }
+
+  el.prompt.addEventListener('input', () => { el.count.textContent = el.prompt.value.length; el.err.textContent = ''; });
+
+  function loadImage(url, timeoutMs = 45000) {
+    return new Promise((resolve, reject) => {
+      const im = new Image();
+      const t = setTimeout(() => reject(new Error('timeout')), timeoutMs);
+      im.onload = () => { clearTimeout(t); resolve(url); };
+      im.onerror = () => { clearTimeout(t); reject(new Error('error')); };
+      im.src = url;
+    });
+  }
+
+  async function generate() {
+    if (state.busy) return;
+    const text = el.prompt.value.trim();
+    if (text.length < 3) { el.err.textContent = 'Escribe una descripción para generar la imagen.'; el.prompt.focus(); return; }
+    if (!state.session) { openAuth(); return; }
+    if (state.credits <= 0) { showModal('Te quedaste sin créditos. Compra un pack para seguir generando.'); return; }
+
+    const ratio = radio('ratio').value, [w, h] = SIZES[ratio];
+    const styleName = radioLabel('style');
+    const full = `${text}, ${radio('style').value}`;
+    const seed = Math.floor(Math.random() * 1e6);
+    const url = `https://image.pollinations.ai/prompt/${encodeURIComponent(full)}?width=${w}&height=${h}&seed=${seed}&nologo=true&model=flux`;
+
+    state.busy = true; renderCredits();
+    el.skeleton.style.aspectRatio = `${w}/${h}`;
+    el.skeleton.style.width = ratio === '9:16' ? '55%' : '100%';
+    show('loader');
+    const msgs = ['Interpretando tu prompt…', 'Componiendo la escena…', 'Afinando detalles…'];
+    let i = 0; el.loadMsg.textContent = msgs[0];
+    const iv = setInterval(() => { el.loadMsg.textContent = msgs[++i % msgs.length]; }, 2500);
+
+    try {
+      const r = await api('generate', { prompt: full, width: w, height: h });
+      state.credits = r.credits;
+      const finalUrl = await loadImage(r.url);
+      const item = { url: finalUrl, prompt: text, style: styleName, ratio, id: Date.now() };
+      state.current = item;
+      state.gallery = [item, ...state.gallery].slice(0, 3);
+      el.img.src = finalUrl;
+      el.meta.textContent = `${styleName} · ${ratio}`;
+      show('result'); renderGallery();
+    } catch (e) {
+      show('empty');
+      if (e.code === 402) showModal('Te quedaste sin créditos. Compra un pack para seguir generando.');
+      else toast(e.message || 'No se pudo generar la imagen. Inténtalo de nuevo.');
+    } finally {
+      clearInterval(iv); state.busy = false; renderCredits();
+    }
+  }
+
+  function renderGallery() {
+    el.gallery.innerHTML = '';
+    if (!state.gallery.length) {
+      el.gallery.innerHTML = '<p class="sm:col-span-3 text-sm text-mute bg-panel border border-edge rounded-2xl p-6">Aún no has generado imágenes. Las últimas tres aparecerán aquí.</p>';
+      return;
+    }
+    state.gallery.forEach(it => {
+      const card = document.createElement('button');
+      card.className = 'text-left bg-panel border border-edge rounded-2xl overflow-hidden hover:border-iris transition pop';
+      card.setAttribute('aria-label', 'Ver de nuevo: ' + it.prompt);
+      const [w, h] = SIZES[it.ratio];
+      card.innerHTML = `<div class="bg-ink grid place-items-center" style="height:220px"><img src="${it.url}" alt="" class="max-h-full max-w-full object-contain"></div>
+        <div class="p-3"><p class="text-sm line-clamp-2"></p><p class="text-xs text-mute mt-1">${it.style} · ${it.ratio}</p></div>`;
+      card.querySelector('p').textContent = it.prompt;
+      card.addEventListener('click', () => {
+        state.current = it; el.img.src = it.url; el.meta.textContent = `${it.style} · ${it.ratio}`;
+        show('result'); window.scrollTo({ top: 0, behavior: 'smooth' });
+      });
+      el.gallery.appendChild(card);
+    });
+  }
+
+  async function download() {
+    const it = state.current; if (!it) return;
+    const name = 'ai-image-' + it.id + '.jpg';
+    try {
+      const blob = await (await fetch(it.url)).blob();
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+      toast('Descarga iniciada');
+    } catch {
+      window.open(it.url, '_blank', 'noopener'); toast('Se abrió la imagen: guárdala con clic derecho.');
+    }
+  }
+
+  async function copyPrompt() {
+    const it = state.current; if (!it) return;
+    try { await navigator.clipboard.writeText(it.prompt); }
+    catch {
+      const ta = document.createElement('textarea'); ta.value = it.prompt; document.body.appendChild(ta);
+      ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    toast('Prompt copiado');
+  }
+
+  // Estado simulado de la API
+  function pingApi() {
+    const dot = $('apiDot'), txt = $('apiText'), t0 = performance.now();
+    fetch('https://image.pollinations.ai/', { mode: 'no-cors' })
+      .then(() => { dot.className = 'w-2 h-2 rounded-full bg-emerald-400'; txt.textContent = 'API operativa · ' + Math.round(performance.now() - t0) + ' ms'; })
+      .catch(() => { dot.className = 'w-2 h-2 rounded-full bg-amber-400'; txt.textContent = 'API sin respuesta'; });
+  }
+
+  el.gen.addEventListener('click', generate);
+  el.prompt.addEventListener('keydown', e => { if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') generate(); });
+  $('downloadBtn').addEventListener('click', download);
+  $('copyBtn').addEventListener('click', copyPrompt);
+  $('upgradeBtn').addEventListener('click', () => showModal('Pack de 50 créditos para seguir generando imágenes.'));
+  $('mClose').addEventListener('click', () => el.modal.classList.add('hidden'));
+  el.modal.addEventListener('click', e => { if (e.target === el.modal) el.modal.classList.add('hidden'); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape') el.modal.classList.add('hidden'); });
+  
+  async function api(name, body) {
+    const { data } = await sb.auth.getSession();
+    if (!data.session) { openAuth(); throw Object.assign(new Error('Inicia sesión para continuar.'), { code: 401 }); }
+    const res = await fetch('/.netlify/functions/' + name, { method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: 'Bearer ' + data.session.access_token },
+      body: JSON.stringify(body || {}) });
+    const j = await res.json().catch(() => ({}));
+    if (!res.ok) throw Object.assign(new Error(j.error || 'Error del servidor'), { code: res.status });
+    return j;
+  }
+  const authModal = $('authModal'), aMsg = $('aMsg');
+  function openAuth() { aMsg.textContent = ''; authModal.classList.remove('hidden'); $('aEmail').focus(); }
+  async function refreshCredits() {
+    if (!state.session) { renderCredits(); return; }
+    const { data } = await sb.from('profiles').select('credits').single();
+    if (data) state.credits = data.credits;
+    renderCredits();
+  }
+  async function auth(kind) {
+    aMsg.className = 'text-xs text-rose mt-2 min-h-[1rem]'; aMsg.textContent = '';
+    const email = $('aEmail').value.trim(), password = $('aPass').value;
+    const { data, error } = kind === 'up' ? await sb.auth.signUp({ email, password }) : await sb.auth.signInWithPassword({ email, password });
+    if (error) { aMsg.textContent = error.message; return; }
+    if (kind === 'up' && !data.session) { aMsg.className = 'text-xs text-mute mt-2'; aMsg.textContent = 'Revisa tu correo para confirmar la cuenta y luego inicia sesión.'; return; }
+    authModal.classList.add('hidden');
+  }
+  async function buy() {
+    if (!state.session) { el.modal.classList.add('hidden'); openAuth(); return; }
+    try { const r = await api('checkout'); window.location.href = r.url; } catch (e) { toast(e.message); }
+  }
+  $('aIn').addEventListener('click', () => auth('in'));
+  $('aUp').addEventListener('click', () => auth('up'));
+  $('aClose').addEventListener('click', () => authModal.classList.add('hidden'));
+  authModal.addEventListener('click', e => { if (e.target === authModal) authModal.classList.add('hidden'); });
+  $('authBtn').addEventListener('click', () => state.session ? sb.auth.signOut() : openAuth());
+  $('mProBtn').addEventListener('click', buy);
+  sb.auth.onAuthStateChange((_e, session) => {
+    state.session = session;
+    $('authBtn').textContent = session ? 'Salir' : 'Iniciar sesión';
+    setTimeout(refreshCredits, 0);
+  });
+  show('empty'); renderCredits(); pingApi();
+})();
+</script>
+</body>
+</html>
