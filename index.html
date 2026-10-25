@@ -3,8 +3,10 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI Image Studio</title>
+<title>Fotos de comida con IA para restaurantes y cafeterías | AI Image Studio</title>
+<meta name="description" content="Crea fotos de platos, bebidas y postres con IA para Instagram, WhatsApp y domicilios. Escribe en español, elige el formato y descarga en segundos.">
 <script src="https://cdn.tailwindcss.com"></script>
+<script src="config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -51,8 +53,8 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
 
 <main class="max-w-6xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
   <div class="max-w-2xl mb-8">
-    <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight">Describe una imagen y la creamos en segundos.</h1>
-    <p class="text-mute mt-3">Escribe tu idea, elige un estilo y un formato. Cada generación usa 1 crédito gratuito.</p>
+    <h1 class="text-3xl sm:text-4xl font-semibold tracking-tight">Fotos de comida para tu restaurante, listas en segundos.</h1>
+    <p class="text-mute mt-3">Describe tu plato, bebida o postre y obtén una imagen lista para Instagram, WhatsApp y apps de domicilio. Cada generación usa 1 crédito gratuito.</p>
   </div>
 
   <div class="grid lg:grid-cols-[400px_1fr] gap-6">
@@ -61,26 +63,27 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
       <div>
         <label for="prompt" class="text-sm font-medium">Prompt</label>
         <textarea id="prompt" rows="5" maxlength="400" class="mt-2 w-full bg-ink border border-edge rounded-xl p-3 text-sm resize-none placeholder:text-mute/70 focus:border-iris"
-          placeholder="Un faro sobre un acantilado al amanecer, con niebla baja y mar en calma"></textarea>
+          placeholder="Bandeja paisa con arepa y aguacate sobre mesa de madera"></textarea>
         <div class="flex justify-between text-xs text-mute mt-1"><span id="promptErr" class="text-rose"></span><span><span id="count">0</span>/400</span></div>
+        <div id="chips" class="flex flex-wrap gap-2 mt-3" aria-label="Ejemplos"><button type="button" class="text-xs px-3 py-1.5 rounded-full border border-edge text-mute hover:border-iris hover:text-white transition" data-p="Bandeja paisa con arroz, fríjoles, chicharrón, huevo frito, arepa y aguacate">Bandeja paisa</button><button type="button" class="text-xs px-3 py-1.5 rounded-full border border-edge text-mute hover:border-iris hover:text-white transition" data-p="Hamburguesa artesanal con queso derretido, tocineta y papas fritas en tabla de madera">Hamburguesa</button><button type="button" class="text-xs px-3 py-1.5 rounded-full border border-edge text-mute hover:border-iris hover:text-white transition" data-p="Café con leche con arte latte en taza de cerámica y un croissant al lado">Café latte</button><button type="button" class="text-xs px-3 py-1.5 rounded-full border border-edge text-mute hover:border-iris hover:text-white transition" data-p="Porción de torta de chocolate con ganache y fresas">Torta de chocolate</button><button type="button" class="text-xs px-3 py-1.5 rounded-full border border-edge text-mute hover:border-iris hover:text-white transition" data-p="Almuerzo ejecutivo con sopa, seco con arroz, ensalada y jugo natural">Menú del día</button></div>
       </div>
 
       <fieldset>
-        <legend class="text-sm font-medium mb-2">Estilo</legend>
+        <legend class="text-sm font-medium mb-2">Tipo de foto</legend>
         <div id="styles" class="grid grid-cols-2 gap-2">
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="photorealistic, ultra detailed, natural lighting, 35mm photo" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Fotorrealista</span></label>
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="anime style, vibrant colors, clean line art, studio quality"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Anime</span></label>
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="digital art, concept art, detailed illustration, trending on artstation"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Arte Digital</span></label>
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="cyberpunk, neon lights, rainy night city, futuristic, high contrast"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Cyberpunk</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="professional food photography of a plated dish, appetizing, natural window light, shallow depth of field, rustic table, high detail" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Plato</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="professional beverage photography, cafe setting, condensation droplets, soft natural light, shallow depth of field"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Bebida</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="professional dessert and bakery photography, soft light, pastel background, appetizing, high detail"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Postre</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="style" value="warm cozy restaurant interior, inviting atmosphere, soft ambient lighting, wide angle photo"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Local</span></label>
         </div>
       </fieldset>
 
       <fieldset>
         <legend class="text-sm font-medium mb-2">Formato</legend>
         <div class="grid grid-cols-3 gap-2">
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="1:1" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">1:1</span></label>
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="16:9"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">16:9</span></label>
-          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="9:16"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">9:16</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="1:1" checked><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Post 1:1</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="16:9"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Portada 16:9</span></label>
+          <label class="chip cursor-pointer"><input class="sr-only" type="radio" name="ratio" value="9:16"><span class="block text-center text-sm py-2 rounded-lg border border-edge bg-ink transition">Historia 9:16</span></label>
         </div>
       </fieldset>
 
@@ -161,8 +164,8 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
 
 <script>
 (() => {
-  const SUPABASE_URL = 'https://chslxdazdnabztylmlxy.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_3KrSt-t6aP1w_CWdSP8jkA_Lz8kmMqd';
+  const SUPABASE_URL = (window.APP_CONFIG || {}).url;
+  const SUPABASE_ANON_KEY = (window.APP_CONFIG || {}).key;
   const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY);
   const SIZES = { '1:1':[768,768], '16:9':[1024,576], '9:16':[576,1024] };
   const $ = id => document.getElementById(id);
@@ -228,7 +231,7 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
     const iv = setInterval(() => { el.loadMsg.textContent = msgs[++i % msgs.length]; }, 2500);
 
     try {
-      const r = await api('generate', { prompt: full, width: w, height: h });
+      const r = await api('generate', { prompt: text, style: radio('style').value + hint });
       state.credits = r.credits;
       const finalUrl = await cropTo(r.image, ratio);
       const item = { url: finalUrl, prompt: text, style: styleName, ratio, id: Date.now() };
@@ -350,6 +353,9 @@ tailwind.config = { theme: { extend: { fontFamily: { sans: ['Sora','system-ui','
     $('authBtn').textContent = session ? 'Salir' : 'Iniciar sesión';
     setTimeout(refreshCredits, 0);
   });
+  document.querySelectorAll('#chips button').forEach(b => b.addEventListener('click', () => {
+    el.prompt.value = b.dataset.p; el.count.textContent = b.dataset.p.length; el.err.textContent = ''; el.prompt.focus();
+  }));
   const ADSENSE_CLIENT = ''; // ej. 'ca-pub-1234567890123456' (cuando AdSense te apruebe)
   const ADSENSE_SLOT = '';   // ID del bloque de anuncios que crees en AdSense
   const adSlot = $('adSlot');
